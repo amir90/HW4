@@ -61,6 +61,8 @@ MyRodPathFinder.h
 /home/amir/Documents/CS Masters/Robotics/HW4/MyRodPathFinder.h
 MyQueryHandler.h
 /home/amir/Documents/CS Masters/Robotics/HW4/MyQueryHandler.h
+math.h
+-
 
 /home/amir/Documents/CS Masters/Robotics/HW4/MyRodPathFinder.h
 vector

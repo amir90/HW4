@@ -3,6 +3,7 @@
 
 #include "MyRodPathFinder.h"
 #include "MyQueryHandler.h"
+#include <math.h>
 
 #define STEPS 256
 #define Nbbox 20
@@ -252,10 +253,8 @@ double localPlanner (qPoint q1 ,qPoint q2, MyQueryHandler handler) {
 		return -1;
 }
 
-short getDirection(short direction, qPoint q1, qPoint q2, MyQueryHandler handler) {
-	if(direction == 0) {
-		direction = localPlanner(q1, q2, handler);
-	}
+short getDirection(qPoint q1, qPoint q2, MyQueryHandler handler) {
+	short direction = localPlanner(q1, q2, handler);
 	return direction;
 }
 
@@ -346,8 +345,14 @@ struct Distance {
 }; // end of struct Distance
 
 
-std::pair<double,int> cost(qPoint v,qPoint v_tag) {
-	//todo: implement (cost is distance)
+std::pair<double,int> cost(qPoint v,qPoint v_tag,MyQueryHandler handler) {
+
+	std::pair<double,int> res;
+
+	res.first = dist_min(v,v_tag);
+	res.second = getDirection(v,v_tag,handler);
+
+	return res;
 }
 
 double heuristic(qPoint v, qPoint v_tag) {
@@ -375,10 +380,6 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 
 	MyQueryHandler queryHandler(rodLength,obstacles);
 	
-
-	//TODO : find solution
-//	CGAL::Bbox_2 bbox(1, -1, 1, -1);
-
 	CGAL::Bbox_2 bbox = obstacles[0].bbox();
 
 	for (Polygon_2 p: obstacles) {
@@ -517,94 +518,22 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 
 	int N=V.size();
 
-cout<<N<<endl;
-	vector<vector<double>> graph(N, vector<double>(N,numeric_limits<double>::max())); //matrix representation of the graph
-
-
-
-	// 0 - default, 1 - clockwise is best(/only option), (-1) - cc, 2 - no route
-	vector<vector<short>> direction(N,vector<short>(N,0));
-	//short direction[N][N];
-
-/*
-
-	for (int i=0; i<N; i++) {
-		for (int j=0; j<N; j++) {
-			direction[i][j]=0;
-		}
-	}
-*/
-
-	//KNN implementation
-	/*
-	Tree tree;
-
-	tree.insert(V.begin(),V.end());
-
-	for (qPoint q: V ) {
-
-		K_neighbor_search search(tree, q, K);
-
-		for(K_neighbor_search::iterator it = search.begin(); it != search.end(); it++){
-	    	Neighbor n;
-	    	qPoint q1 = it->first;
-	    	n.p = q1;
-	    		short dir = getDirection(direction[q.index][q1.index],q, q1, queryHandler);
-	    		if(dir != 2) {
-	    			n.isClockwise = (dir == 1);
-	    			n.distance = dist(q, q1, n.isClockwise);
-	    	    	direction[q.index][q1.index] = dir;
-	    	    	direction[q1.index][q.index] = -dir;
-	    	    	graph[q.index][n.p.index] = n.distance;
-	    	    	graph[n.p.index][q.index] = n.distance;
-	    		} else {
-	    	    	direction[q.index][q1.index] = 2;
-	    	    	direction[q1.index][q.index] = 2;
-	    		}
-
-
-	      }
-	}
-*/
 	//Range implementation;
 
 	Tree tree;
 
 	tree.insert(V.begin(),V.end());
 
-	//todo: implement and normalize radius as required in assignment
-	double radius = 2;
+	double radius = 3/2*pow((log2(N)/N),(1/3))/((bbox.xmax()-bbox.xmin())*(bbox.ymax()-bbox.ymin()));
 
 	std::vector<std::list<qPoint>> neighbors(N);
 
 	for (qPoint q: V ) { //sorted by index
 
-		Fuzzy_Circle fc(q,2);
-
-	//	K_neighbor_search search(tree, q, K);
+		Fuzzy_Circle fc(q,radius);
 
 		tree.search(std::back_inserter(neighbors[q.index]), fc);
-/*
-		for(auto it = result.begin(); it != result.end(); it++){
-	    	Neighbor n;
-	    	qPoint q1 = *it;
-	    	n.p = q1;
-	    		short dir = getDirection(direction[q.index][q1.index],q, q1, queryHandler);
-	    		if(dir != 2) {
-	    			n.isClockwise = (dir == 1);
-	    			n.distance = dist(q, q1, n.isClockwise);
-	    	    	direction[q.index][q1.index] = dir;
-	    	    	direction[q1.index][q.index] = -dir;
-	    	    	graph[q.index][n.p.index] = n.distance;
-	    	    	graph[n.p.index][q.index] = n.distance;
-	    		} else {
-	    	    	direction[q.index][q1.index] = 2;
-	    	    	direction[q1.index][q.index] = 2;
-	    		}
 
-
-	      }
-	      */
 	}
 /*
 		for (int j=0; j<N; j++) {
@@ -612,15 +541,15 @@ cout<<N<<endl;
 		}
 */
 
-	//TODO: implement A* (moslty done, if time permits change to lazy A*)
-
 	std::vector<double> g(N,-1);
 	std::vector<double> f(N,-1);
 	std::vector<int> parent(N,-1);
-	std::vector<int> Orient(N,2);
+	std::vector<int> Orient(N,1);
 
 		f[0] = heuristic(V[0],V[1]);
 		g[0]=0;
+
+	bool foundPath = false;
 
 	//TODO: sort open according to f(v) minimization, using costum comparator;
 	std::priority_queue<int> Open; std::set<int> Closed;
@@ -629,7 +558,7 @@ cout<<N<<endl;
 
 	while (!Open.empty()) {
 		qPoint v = V[Open.top()];
-		if (v.index == 1) {break;}
+		if (v.index == 1) {foundPath=true; break;}
 		Closed.insert(Open.top());
 		Open.pop();
 		for (qPoint q: neighbors[v.index]) {
@@ -637,30 +566,39 @@ cout<<N<<endl;
 				continue;
 			}
 			Open.push(q.index);
-			if (g[q.index]<=g[v.index] + cost(v,q).first) {
+			if (g[q.index]<=g[v.index] + cost(v,q,queryHandler).first) {
 				continue;
 			}
-			parent[q.index] = v.index; g[q.index]=g[v.index]+cost(q,v).first;
+			parent[q.index] = v.index; g[q.index]=g[v.index]+cost(q,v,queryHandler).first;
 			f[v.index] = g[q.index]+heuristic(q,V[1]);
-			Orient[v.index] = cost(q,v).second; //direction of rotation;
+			Orient[v.index] = cost(q,v,queryHandler).second; //direction of rotation;
 		}
 	}
 
-//	vector<int> path = dijkstra(graph, N, /*index of source*/0, /*index of target*/1);
+	std::vector<int> path;
 
-/*
+	if (foundPath) {
+		int currInd = 1;
+		while (currInd!=0) {
+			path.push_back(currInd);
+		}
+		path.push_back(0);
+	}
+
+	std::reverse(path.begin(),path.end());
+
 	// TODO : check if should include last step
 	for(int i=0; i<path.size(); i++) {
 		Path::PathMovement movement;
 		movement.location = V[path[i]].xy;
 		movement.rotation = V[path[i]].rotation;
 			movement.orientation =
-				( direction[V[path[i-1]].index][V[path[i]].index] == 1 ?
+				( Orient[V[path[i-1]].index] == 1 ?
 						CGAL::CLOCKWISE :
 						CGAL::COUNTERCLOCKWISE);
 
 		res.push_back(movement);
 	}
-*/
+
     return res;
 }
