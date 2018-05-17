@@ -357,6 +357,8 @@ std::pair<double,int> cost(qPoint v,qPoint v_tag,MyQueryHandler handler) {
 
 double heuristic(qPoint v, qPoint v_tag) {
 	//todo: implement according to slides
+	//1. euclidean with center of rod as point - for first cost function
+	//2. movement without rotation - when translation weight>0.5 (second cost function)
 }
 
 
@@ -551,26 +553,30 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 
 	bool foundPath = false;
 
-	//TODO: sort open according to f(v) minimization, using costum comparator;
-	std::priority_queue<int> Open; std::set<int> Closed;
+	std::set<int> Open; std::set<int> Closed;
 
-	Open.push(0);
+	Open.insert(0);
 
-	while (!Open.empty()) {
-		qPoint v = V[Open.top()];
+	int min_f_ind = 0;
+
+	 while (!Open.empty()) {
+		qPoint v = V[min_f_ind];
 		if (v.index == 1) {foundPath=true; break;}
-		Closed.insert(Open.top());
-		Open.pop();
+		Closed.insert(min_f_ind);
+		Open.erase(min_f_ind);
 		for (qPoint q: neighbors[v.index]) {
 			if (Closed.find(q.index)!=Closed.end()) {
 				continue;
 			}
-			Open.push(q.index);
+			Open.insert(q.index);
 			if (g[q.index]<=g[v.index] + cost(v,q,queryHandler).first) {
 				continue;
 			}
 			parent[q.index] = v.index; g[q.index]=g[v.index]+cost(q,v,queryHandler).first;
 			f[v.index] = g[q.index]+heuristic(q,V[1]);
+			if (f[v.index]<f[min_f_ind]) {
+				min_f_ind = v.index;
+			}
 			Orient[v.index] = cost(q,v,queryHandler).second; //direction of rotation;
 		}
 	}
