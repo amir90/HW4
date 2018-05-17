@@ -346,15 +346,13 @@ struct Distance {
 }; // end of struct Distance
 
 
-double cost(qPoint v,qPoint v_tag) {
+std::pair<double,int> cost(qPoint v,qPoint v_tag) {
 	//todo: implement (cost is distance)
 }
 
 double heuristic(qPoint v, qPoint v_tag) {
 	//todo: implement according to slides
 }
-
-double
 
 
 typedef CGAL::Dimension_tag<3> D;
@@ -577,7 +575,7 @@ cout<<N<<endl;
 	//todo: implement and normalize radius as required in assignment
 	double radius = 2;
 
-	std::vector<std::list<qPoint>> neighbors;
+	std::vector<std::list<qPoint>> neighbors(N);
 
 	for (qPoint q: V ) { //sorted by index
 
@@ -585,7 +583,7 @@ cout<<N<<endl;
 
 	//	K_neighbor_search search(tree, q, K);
 
-		tree.search(std::back_inserter(neighbors(q.index)), fc);
+		tree.search(std::back_inserter(neighbors[q.index]), fc);
 /*
 		for(auto it = result.begin(); it != result.end(); it++){
 	    	Neighbor n;
@@ -619,29 +617,32 @@ cout<<N<<endl;
 	std::vector<double> g(N,-1);
 	std::vector<double> f(N,-1);
 	std::vector<int> parent(N,-1);
+	std::vector<int> Orient(N,2);
 
-		f(0) = heuristic(V(0),V(1));
-		g(0)=0;
+		f[0] = heuristic(V[0],V[1]);
+		g[0]=0;
 
 	//TODO: sort open according to f(v) minimization, using costum comparator;
 	std::priority_queue<int> Open; std::set<int> Closed;
 
-	Open.insert(0);
+	Open.push(0);
 
 	while (!Open.empty()) {
-		qPoint v = V(Open.top());
-		if (v.index == 1) {return getPath(parent);}
-		Closed.insert(Open.pop());
-		for (qPoint q: neighbors(v.index)) {
-			if (Closed.find(q.index)) {
+		qPoint v = V[Open.top()];
+		if (v.index == 1) {break;}
+		Closed.insert(Open.top());
+		Open.pop();
+		for (qPoint q: neighbors[v.index]) {
+			if (Closed.find(q.index)!=Closed.end()) {
 				continue;
 			}
 			Open.push(q.index);
-			if (g(q.index)<=g(v.index) + cost(v,q)) {
+			if (g[q.index]<=g[v.index] + cost(v,q).first) {
 				continue;
 			}
-			parent(q.index) = v.index; g(q.index)=g(v.index)+cost(q,v);
-			f(v.index) = g(q.index)+heuristic(q,V(1));
+			parent[q.index] = v.index; g[q.index]=g[v.index]+cost(q,v).first;
+			f[v.index] = g[q.index]+heuristic(q,V[1]);
+			Orient[v.index] = cost(q,v).second; //direction of rotation;
 		}
 	}
 
