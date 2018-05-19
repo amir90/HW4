@@ -6,9 +6,9 @@
 #include <math.h>
 
 #define STEPS 256
-#define Nbbox 20
-#define Nrand 80
-#define K 50
+#define Nbbox 2
+#define Nrand 600
+#define K 30
 #define TIMEOUT 100
 #define TRANSLATION_WEIGHT 0.5
 
@@ -90,8 +90,8 @@ double dist_2(qPoint p1, qPoint p2, bool isClockwise) {
 
 
 double dist(qPoint p1, qPoint p2, bool isClockwise) {
-	//return dist_1(p1, p2);
-	return dist_2(p1, p2,isClockwise);
+	return dist_1(p1, p2);
+	//return dist_2(p1, p2,isClockwise);
 }
 
 double dist_min(qPoint p1, qPoint p2) {
@@ -151,63 +151,6 @@ int minDistance(double* dist, bool* sptSet, int V)
    return min_index;
 }
 
-vector<int> dijkstra(vector<vector<double>> graph, int V, int src, int target)
-{
-	vector<int> path;
-	double MAX = numeric_limits<double>::max();
-    double* dist = (double*) calloc(V, sizeof(double));     // The output array.  dist[i] will hold the shortest
-                      // distance from src to i
-
-    bool* sptSet = (bool*) calloc(V, sizeof(bool)); // sptSet[i] will true if vertex i is included in shortest
-                     // path tree or shortest distance from src to i is finalized
-
-	int* prev = (int*) calloc(V, sizeof(int));
-
-     // Initialize all distances as INFINITE and stpSet[] as false
-     for (int i = 0; i < V; i++)
-        dist[i] = MAX, sptSet[i] = false, prev[i]=-1;
-
-     // Distance of source vertex from itself is always 0
-     dist[src] = 0;
-
-     // Find shortest path for all vertices
-     for (int count = 0; count < V-1; count++)
-     {
-       // Pick the minimum distance vertex from the set of vertices not
-       // yet processed. u is always equal to src in first iteration.
-       int u = minDistance(dist, sptSet, V);
-
-       // Mark the picked vertex as processed
-       sptSet[u] = true;
-
-       // Update dist value of the adjacent vertices of the picked vertex.
-       for (int v = 0; v < V; v++)
-
-         // Update dist[v] only if is not in sptSet, there is an edge from
-         // u to v, and total weight of path from src to  v through u is
-         // smaller than current value of dist[v]
-         if (!sptSet[v] && graph[u][v] && dist[u] != MAX
-                                       && dist[u]+graph[u][v] < dist[v]) {
-            dist[v] = dist[u] + graph[u][v];
-			prev[v] = u;
-		}
-     }
-
-	int vertex = target;
-	while(vertex != -1) {
-		path.insert(path.begin(), vertex);
-		vertex = prev[vertex];
-	}
-
-	free(dist);
-	free(sptSet);
-	free(prev);
-
-	return path;
-
-     // print the constructed distance array
-    //  printSolution(dist, V);
-}
 
 /*
  * @return:
@@ -348,17 +291,20 @@ struct Distance {
 std::pair<double,int> cost(qPoint v,qPoint v_tag,MyQueryHandler handler) {
 
 	std::pair<double,int> res;
-
-	res.first = dist_min(v,v_tag);
 	res.second = getDirection(v,v_tag,handler);
+	if (res.second==2) {
+		res.first = numeric_limits<double>::max();
+	} else {
+	res.first = dist_min(v,v_tag);
+	}
+
 
 	return res;
 }
 
 double heuristic(qPoint v, qPoint v_tag) {
-	//todo: implement according to slides
-	//1. euclidean with center of rod as point - for first cost function
-	//2. movement without rotation - when translation weight>0.5 (second cost function)
+//	return dist_min(v,v_tag);
+return 0;
 }
 
 
@@ -526,27 +472,39 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 
 	tree.insert(V.begin(),V.end());
 
-	double radius = 3/2*pow((log2(N)/N),(1/3))/((bbox.xmax()-bbox.xmin())*(bbox.ymax()-bbox.ymin()));
+	double radius = 3/2*pow((log2(N)/N),(1/3));//*(bbox.xmax()-bbox.xmin());//((bbox.xmax()-bbox.xmin())*(bbox.ymax()-bbox.ymin()));
 
 	std::vector<std::list<qPoint>> neighbors(N);
 
 	for (qPoint q: V ) { //sorted by index
 
-		Fuzzy_Circle fc(q,radius);
+//		Fuzzy_Circle fc(q,radius);
 
-		tree.search(std::back_inserter(neighbors[q.index]), fc);
+//		tree.search(std::back_inserter(neighbors[q.index]), fc);
+
+		K_neighbor_search search(tree, q, K);
+
+		for (auto i=search.begin(); i!=search.end(); i++) {
+		neighbors[q.index].push_back((*i).first);
+		}
+		std::cout<<"found "<<neighbors[q.index].size()<<" nodes"<<endl;
 
 	}
+
+
+	std::cout<<"done finding nodes"<<endl;
 /*
 		for (int j=0; j<N; j++) {
 			cout<<direction[0][j]<<" ";
 		}
 */
 
-	std::vector<double> g(N,-1);
-	std::vector<double> f(N,-1);
+	std::vector<double> g(N,numeric_limits<double>::max());
+	std::vector<double> f(N,numeric_limits<double>::max());
+	std::priority_queue<std::pair<double,int>, std::vector<std::pair<double,int>>,std::greater<std::pair<double,int>>> f_Open;
 	std::vector<int> parent(N,-1);
-	std::vector<int> Orient(N,1);
+	std::vector<int> Orient(N,2);
+//	std::pair<double,int> temp;
 
 		f[0] = heuristic(V[0],V[1]);
 		g[0]=0;
@@ -556,30 +514,52 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 	std::set<int> Open; std::set<int> Closed;
 
 	Open.insert(0);
-
-	int min_f_ind = 0;
+//	temp.first = f[0]; temp.second=0;
+//	f_Open.push(temp);
 
 	 while (!Open.empty()) {
+		 int min_f_ind = *(Open.begin());
+		 for (auto i=Open.begin(); i!=Open.end(); i++) {
+			 if (f[*i]<f[min_f_ind]) {
+				 min_f_ind = *i;
+			 }
+		 }
+//		 std::cout<<"size of open: "<<Open.size()<<endl;
+//		while (Closed.find(f_Open.top().second)!=Closed.end() && !f_Open.empty()) {
+//			f_Open.pop();
+//		}
+//		if (f_Open.empty()) {
+//			break;
+//		}
 		qPoint v = V[min_f_ind];
+		cout<<"v.index: "<<v.index<<endl;
 		if (v.index == 1) {foundPath=true; break;}
 		Closed.insert(min_f_ind);
 		Open.erase(min_f_ind);
+		//f_Open.pop();
 		for (qPoint q: neighbors[v.index]) {
-			if (Closed.find(q.index)!=Closed.end()) {
+			if (Closed.find(q.index)!=Closed.end()) { //node already expanded
 				continue;
 			}
+			auto temp = cost(v,q,queryHandler);
+			if (temp.second!=2) {
 			Open.insert(q.index);
-			if (g[q.index]<=g[v.index] + cost(v,q,queryHandler).first) {
+			}
+	//		cout<<g[q.index]<<" "<<g[v.index] + cost(v,q,queryHandler).first<<endl;
+			if (g[q.index]<=(g[v.index] + temp.first)) { //this is not a better path
 				continue;
 			}
-			parent[q.index] = v.index; g[q.index]=g[v.index]+cost(q,v,queryHandler).first;
-			f[v.index] = g[q.index]+heuristic(q,V[1]);
-			if (f[v.index]<f[min_f_ind]) {
-				min_f_ind = v.index;
-			}
-			Orient[v.index] = cost(q,v,queryHandler).second; //direction of rotation;
+			parent[q.index] = v.index; g[q.index]=g[v.index]+temp.first;
+			f[q.index] = g[q.index]+heuristic(q,V[1]);
+//			temp.first = f[q.index]; temp.second = q.index;
+//			f_Open.push(temp);
+			Orient[q.index] = temp.second; //direction of rotation;
+
+
 		}
 	}
+
+	 std::cout<<"exited loop"<<endl;
 
 	std::vector<int> path;
 
@@ -587,11 +567,18 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 		int currInd = 1;
 		while (currInd!=0) {
 			path.push_back(currInd);
+			currInd = parent[currInd];
 		}
 		path.push_back(0);
 	}
 
 	std::reverse(path.begin(),path.end());
+
+	cout<<"path length: "<<path.size()<<endl;
+
+	for (auto i=path.begin(); i!=path.end(); i++) {
+		cout<<"path index: "<<*i<<endl;
+	}
 
 	// TODO : check if should include last step
 	for(int i=0; i<path.size(); i++) {
@@ -599,7 +586,7 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 		movement.location = V[path[i]].xy;
 		movement.rotation = V[path[i]].rotation;
 			movement.orientation =
-				( Orient[V[path[i-1]].index] == 1 ?
+				( Orient[V[path[i]].index] == 1 ?
 						CGAL::CLOCKWISE :
 						CGAL::COUNTERCLOCKWISE);
 
