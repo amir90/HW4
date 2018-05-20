@@ -5,11 +5,11 @@
 #include "MyQueryHandler.h"
 #include <math.h>
 
-#define STEPS 256
+#define STEPS 128
 #define Nbbox 2
-#define Nrand 600
-#define K 30
-#define TIMEOUT 100
+#define Nrand 300
+#define K 50
+#define TIMEOUT 10000
 #define TRANSLATION_WEIGHT 0.5
 
 struct qPoint {
@@ -303,8 +303,8 @@ std::pair<double,int> cost(qPoint v,qPoint v_tag,MyQueryHandler handler) {
 }
 
 double heuristic(qPoint v, qPoint v_tag) {
-//	return dist_min(v,v_tag);
-return 0;
+	return dist_min(v,v_tag);
+//return 0;
 }
 
 
@@ -483,28 +483,30 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 //		tree.search(std::back_inserter(neighbors[q.index]), fc);
 
 		K_neighbor_search search(tree, q, K);
-
+/*
 		for (auto i=search.begin(); i!=search.end(); i++) {
 		neighbors[q.index].push_back((*i).first);
-		}
-		std::cout<<"found "<<neighbors[q.index].size()<<" nodes"<<endl;
 
+
+
+		}*/
+
+		for(K_neighbor_search::iterator it = search.begin(); it != search.end(); it++){
+		    	qPoint q1 = it->first;
+		    	neighbors[q.index].push_back(q1);
+		    	neighbors[q1.index].push_back(q);
+
+	}
 	}
 
 
 	std::cout<<"done finding nodes"<<endl;
-/*
-		for (int j=0; j<N; j++) {
-			cout<<direction[0][j]<<" ";
-		}
-*/
+
 
 	std::vector<double> g(N,numeric_limits<double>::max());
 	std::vector<double> f(N,numeric_limits<double>::max());
-	std::priority_queue<std::pair<double,int>, std::vector<std::pair<double,int>>,std::greater<std::pair<double,int>>> f_Open;
 	std::vector<int> parent(N,-1);
 	std::vector<int> Orient(N,2);
-//	std::pair<double,int> temp;
 
 		f[0] = heuristic(V[0],V[1]);
 		g[0]=0;
@@ -514,45 +516,37 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 	std::set<int> Open; std::set<int> Closed;
 
 	Open.insert(0);
-//	temp.first = f[0]; temp.second=0;
-//	f_Open.push(temp);
 
 	 while (!Open.empty()) {
+
 		 int min_f_ind = *(Open.begin());
 		 for (auto i=Open.begin(); i!=Open.end(); i++) {
 			 if (f[*i]<f[min_f_ind]) {
 				 min_f_ind = *i;
 			 }
 		 }
-//		 std::cout<<"size of open: "<<Open.size()<<endl;
-//		while (Closed.find(f_Open.top().second)!=Closed.end() && !f_Open.empty()) {
-//			f_Open.pop();
-//		}
-//		if (f_Open.empty()) {
-//			break;
-//		}
 		qPoint v = V[min_f_ind];
-		cout<<"v.index: "<<v.index<<endl;
 		if (v.index == 1) {foundPath=true; break;}
 		Closed.insert(min_f_ind);
 		Open.erase(min_f_ind);
-		//f_Open.pop();
 		for (qPoint q: neighbors[v.index]) {
+
+
 			if (Closed.find(q.index)!=Closed.end()) { //node already expanded
 				continue;
 			}
 			auto temp = cost(v,q,queryHandler);
-			if (temp.second!=2) {
+
+
+
+			if (temp.second==2) {continue;}
 			Open.insert(q.index);
-			}
-	//		cout<<g[q.index]<<" "<<g[v.index] + cost(v,q,queryHandler).first<<endl;
+
 			if (g[q.index]<=(g[v.index] + temp.first)) { //this is not a better path
 				continue;
 			}
 			parent[q.index] = v.index; g[q.index]=g[v.index]+temp.first;
 			f[q.index] = g[q.index]+heuristic(q,V[1]);
-//			temp.first = f[q.index]; temp.second = q.index;
-//			f_Open.push(temp);
 			Orient[q.index] = temp.second; //direction of rotation;
 
 
