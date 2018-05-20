@@ -5,11 +5,11 @@
 #include "MyQueryHandler.h"
 #include <math.h>
 
-#define STEPS 128
+#define STEPS 256
 #define Nbbox 2
-#define Nrand 300
+#define Nrand 2000
 #define K 50
-#define TIMEOUT 10000
+#define TIMEOUT 100
 #define TRANSLATION_WEIGHT 0.5
 
 struct qPoint {
@@ -567,6 +567,15 @@ MyRodPathFinder::getPath(FT rodLength, Point_2 rodStartPoint, double rodStartRot
 	}
 
 	std::reverse(path.begin(),path.end());
+
+	// calc cost 
+	double totalCost = 0;
+	for(int i=0; i < path.size() - 1; i++) {
+		qPoint v1 = V[path.at(i)], v2 = V[path.at(i+1)];
+		totalCost += cost(v1,v2,queryHandler).first;
+	}
+
+	cout << "path cost : " << totalCost << endl;
 
 	cout<<"path length: "<<path.size()<<endl;
 
