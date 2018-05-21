@@ -302,9 +302,19 @@ std::pair<double,int> cost(qPoint v,qPoint v_tag,MyQueryHandler handler) {
 	return res;
 }
 
+Point_2 getMid(qPoint v) {
+	double xStart = v.xy.x().to_double(), yStart = v.xy.y().to_double(); 
+	double xEnd = xStart + cos(v.rotation)*globalRodLength.to_double();
+	double yEnd = yStart + sin(v.rotation)*globalRodLength.to_double();
+
+	return Point_2( (xStart + xEnd) * 0.5, (yStart + yEnd) * 0.5);
+}
 double heuristic(qPoint v, qPoint v_tag) {
-	return dist_min(v,v_tag);
-//return 0;
+
+	Point_2 v_mid = getMid(v);
+	Point_2 v_tag_mid = getMid(v_tag);
+	
+	return sqrt(CGAL::squared_distance(v_mid, v_tag_mid).to_double());
 }
 
 
